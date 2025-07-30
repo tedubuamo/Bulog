@@ -1,0 +1,9 @@
+/pycaret-env
+/scrap-env
+/dataset_forecast
+/dataset_scrap
+/dokumen
+
+logs.log
+scrap.ipynb
+forecast.ipynb

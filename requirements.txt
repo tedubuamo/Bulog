@@ -1,0 +1,10 @@
+pycaret==3.0.4
+pandas==1.5.3
+numpy==1.23.5
+scikit-learn==1.2.2
+statsmodels==0.14.1
+matplotlib==3.7.2
+prophet==1.1.5
+u8darts[all]==0.27.0
+jupyterlab==3.6.5
+ipykernel==6.25.1
