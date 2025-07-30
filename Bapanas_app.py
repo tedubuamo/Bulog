@@ -99,12 +99,27 @@ elif st.session_state.page == "Scrap":
                 status, path = download_data(tanggal)
                 if status:
                     st.success(f"✅ Berhasil: {os.path.basename(path)}")
-                    df = preview_xlsx(path)
-                    st.subheader("📊 Preview Data:")
-                    st.dataframe(df)
-                    st.download_button("📥 Unduh File", data=open(path, "rb"), file_name=os.path.basename(path))
+                    if os.path.exists(path):
+                        try:
+                            df = pd.read_excel(path)
+                            if not df.empty:
+                                st.subheader("📊 Preview Data:")
+                                st.dataframe(df)
+                                st.download_button(
+                                    "📥 Unduh File",
+                                    data=open(path, "rb"),
+                                    file_name=os.path.basename(path),
+                                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                                )
+                            else:
+                                st.warning("⚠️ File berhasil diunduh tetapi kosong.")
+                        except Exception as e:
+                            st.error(f"❌ Gagal membaca file Excel: {e}")
+                    else:
+                        st.error("❌ File tidak ditemukan setelah diunduh.")
                 else:
                     st.error("❌ Gagal mengunduh data.")
+
 
     elif mode == "Periode":
         col1, col2 = st.columns(2)
