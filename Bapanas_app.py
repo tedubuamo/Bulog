@@ -49,7 +49,7 @@ def download_data(tanggal):
     file_path = os.path.join(folder_path, file_name)
     os.makedirs(folder_path, exist_ok=True)
 
-    url = f"https://api-panelhargav2.badanpangan.go.id/harga-pangan-table-province/export?province_id=15&period_date={period_param}&level_harga_id=1"
+    url = f"https://api-panelhargav2.badanpangan.go.id/harga-pangan-table-province/export?province_id=15&period_date={period_param}&level_harga_id=3"
     response = requests.get(url)
 
     if response.status_code == 200 and response.content:
