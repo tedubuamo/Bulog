@@ -147,7 +147,7 @@ elif st.session_state.page == "Scrap Konsumen":
                 nama_file = f"harga_konsumen_bapanas_{tanggal.strftime('%d-%m-%Y')}.xlsx"
                 status_text.markdown(f"⏳ Mengunduh: `{nama_file}` ({i+1}/{total})")
 
-                success, path = download_data(tanggal)
+                success, path = download_data(tanggal,level_harga_id=3)
                 if success:
                     tanggal_key = tanggal.strftime('%d-%m-%Y')
                     st.session_state.downloaded_files[tanggal_key] = path
@@ -225,7 +225,7 @@ elif st.session_state.page == "Scrap Produsen":
                 nama_file = f"harga_konsumen_bapanas_{tanggal.strftime('%d-%m-%Y')}.xlsx"
                 status_text.markdown(f"⏳ Mengunduh: `{nama_file}` ({i+1}/{total})")
 
-                success, path = download_data(tanggal)
+                success, path = download_data(tanggal, level_harga_id=1)
                 if success:
                     tanggal_key = tanggal.strftime('%d-%m-%Y')
                     st.session_state.downloaded_files[tanggal_key] = path
