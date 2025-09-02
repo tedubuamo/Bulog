@@ -257,25 +257,20 @@ elif st.session_state.page == "Insight":
         "nilai": [12000, 13500, 12500, 11000]
     })
 
-    # Tampilkan dataframe mentah (opsional)
     st.dataframe(data)
-
-    # Konversi nilai ke ukuran radius bulatan
     max_value = data["nilai"].max()
     min_value = data["nilai"].min()
     data["radius"] = data["nilai"].apply(lambda x: ((x - min_value) / (max_value - min_value + 1e-9)) * 1000 + 500)
 
-    # Konfigurasi Pydeck Layer
     layer = pdk.Layer(
         "ScatterplotLayer",
         data=data,
         get_position='[longitude, latitude]',
         get_radius="radius",
-        get_fill_color='[255, 0, 0, 140]',  # Merah transparan
+        get_fill_color='[255, 0, 0, 140]', 
         pickable=True
     )
 
-    # Tampilan awal peta
     view_state = pdk.ViewState(
         latitude=data["latitude"].mean(),
         longitude=data["longitude"].mean(),
@@ -322,4 +317,4 @@ elif st.session_state.page == "Monitoring Harga":
 
             chart_placeholder.line_chart(st.session_state.monitor_data.set_index("Waktu"))
 
-            time.sleep(2)  # Delay 2 detik untuk simulasi real-time
+            time.sleep(2) 
