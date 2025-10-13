@@ -2,6 +2,7 @@ import streamlit as st
 from utility.session import init_session, show_sidebar
 from pages_customize import login, scrap_konsumen, scrap_produsen, insight, forecasting, monitoring
 import base64
+import os
 
 # ====== CSS Styling ======
 st.markdown(
@@ -94,23 +95,30 @@ init_session()
 if not st.session_state.login_status:
     st.session_state.page = "Login"
 
-def img_to_base64(path):
+def img_to_base64(path: str):
+    """Konversi gambar ke base64, dengan pengecekan file."""
+    if not os.path.exists(path):
+        st.warning(f"Logo tidak ditemukan di {path}")
+        return None
     with open(path, "rb") as f:
         data = f.read()
     return base64.b64encode(data).decode()
 
-logo_path = "static/logo.png"
+# Path logo relatif terhadap file ini (app.py)
+BASE_DIR = os.path.dirname(__file__)
+logo_path = os.path.join(BASE_DIR, "static", "logo.png")
 logo_base64 = img_to_base64(logo_path)
 
 with st.sidebar:
-    st.markdown(
-        f"""
-        <div style="background:white; padding:7px; border-radius:10px; text-align:center;">
-            <img src="data:image/png;base64,{logo_base64}" width="250">
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+    if logo_base64:
+        st.markdown(
+            f"""
+            <div style="background:white; padding:7px; border-radius:10px; text-align:center;">
+                <img src="data:image/png;base64,{logo_base64}" width="250">
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
 
 # ====== Navigasi Sidebar ======
 show_sidebar()
