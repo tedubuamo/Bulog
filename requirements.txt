@@ -1,6 +1,7 @@
 # Core app
 streamlit==1.47.1
 streamlit-folium==0.25.1
+scikit-learn==1.5.2
 
 # Data handling & analysis
 pandas==2.2.2
