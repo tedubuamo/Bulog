@@ -3,7 +3,8 @@ import datetime
 import os
 import shutil
 import pandas as pd
-from utility.downloader import download_data, create_zip_of_downloads
+from io import BytesIO
+from utility.downloader import download_data, preview_xlsx
 
 def show():
     st.title("📦 Scraper Data Harga Produsen Bapanas")
@@ -32,18 +33,28 @@ def show():
         if start > end:
             st.warning("Tanggal mulai tidak boleh lebih besar dari tanggal akhir.")
         elif st.button("Unduh Data Periode"):
-            if os.path.exists("dataset_scrap"):
-                shutil.rmtree("dataset_scrap")
-
             total = (end - start).days + 1
             progress_bar = st.progress(0)
             status_text = st.empty()
-            for i in range(total):
-                tanggal = start + datetime.timedelta(days=i)
-                status_text.markdown(f"⏳ Mengunduh: {tanggal.strftime('%d-%m-%Y')}")
-                download_data(tanggal, level_harga_id=1)
-                progress_bar.progress((i + 1) / total)
 
+            output = BytesIO()
+            with pd.ExcelWriter(output, engine="openpyxl") as writer:
+                for i in range(total):
+                    tanggal = start + datetime.timedelta(days=i)
+                    status_text.markdown(f"⏳ Mengunduh: `{tanggal.strftime('%d-%m-%Y')}` ({i+1}/{total})")
+                    success, path = download_data(tanggal, level_harga_id=3)
+                    if success:
+                        df = preview_xlsx(path)
+                        if not df.empty:
+                            sheet_name = tanggal.strftime("%d-%m-%Y")
+                            df.to_excel(writer, sheet_name=sheet_name, index=False)
+                    progress_bar.progress((i + 1) / total)
+
+            output.seek(0)
             st.success("✅ Selesai mengunduh semua data.")
-            zip_bytes = create_zip_of_downloads("dataset_scrap", "dataset_scrap.zip")
-            st.download_button("📦 Unduh Semua Data (ZIP)", data=zip_bytes, file_name="dataset_scrap.zip")
+            st.download_button(
+                "📥 Unduh Semua Data (Excel)",
+                data=output,
+                file_name="dataset_periode_produsen.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            )
