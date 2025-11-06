@@ -7,7 +7,7 @@ from io import BytesIO
 from utility.downloader import download_data, preview_xlsx
 
 def show():
-    st.title("📦 Scraper Data Harga Produsen Bapanas")
+    st.title("📦 Scraper Data Harga Produsen Bapanas Provinsi Jawa Timur")
     mode = st.radio("Pilih Mode:", ["Harian", "Periode"])
 
     if mode == "Harian":

@@ -1,6 +1,6 @@
 import streamlit as st
 from utility.session import init_session, show_sidebar
-from pages_customize import login, scrap_konsumen, scrap_produsen, insight, forecasting, monitoring
+from pages_customize import login, scrap_konsumen, scrap_produsen, insight, forecasting, monitoring, homepage
 import base64
 import os
 
@@ -126,13 +126,15 @@ show_sidebar()
 # ====== Routing Halaman ======
 if st.session_state.page == "Login":
     login.show()
+elif st.session_state.page == "Homepage":
+    homepage.show()
 elif st.session_state.page == "Scrap Konsumen":
     scrap_konsumen.show()
 elif st.session_state.page == "Scrap Produsen":
     scrap_produsen.show()
+elif st.session_state.page == "Monitoring Harga":
+    monitoring.show()
 elif st.session_state.page == "Insight":
     insight.show()
 elif st.session_state.page == "Forecasting":
     forecasting.show()
-elif st.session_state.page == "Monitoring Harga":
-    monitoring.show()

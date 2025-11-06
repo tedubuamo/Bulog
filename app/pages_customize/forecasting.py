@@ -15,7 +15,7 @@ def show():
     st.title("💡 Halaman Forecasting")
     st.subheader("📈 Forecast Harga Komoditas dengan Beberapa Model Seasonal")
 
-    uploaded_file = st.file_uploader("📤 Upload file Excel/CSV dengan kolom ds,y", type=["xlsx", "xls", "csv"])
+    uploaded_file = st.file_uploader("📤 Upload file Excel/CSV dengan kolom ds,y. Gunakan rerata yang sudah dihitung pada masing-masing bulan setelah dilakukan scraping.", type=["xlsx", "xls", "csv"])
 
     if uploaded_file is not None:
         if uploaded_file.name.endswith(".csv"):
@@ -111,7 +111,7 @@ def show():
         plt.xticks(rotation=45)
         plt.title(f"Forecast Harga Komoditas - {model_choice}", fontsize=14, weight="bold")
         plt.xlabel("Tanggal", fontsize=12)
-        plt.ylabel("Harga", fontsize=12)
+        plt.ylabel("Harga (Rupiah)", fontsize=12)
         plt.grid(True, linestyle="--", alpha=0.6)
         plt.legend(loc="upper left", fontsize=10)
         plt.tight_layout()
