@@ -6,8 +6,8 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
+from statsmodels.tsa.arima.model import ARIMA
 from sklearn.preprocessing import MinMaxScaler
-from prophet import Prophet
 
 plt.style.use("seaborn-v0_8-whitegrid")
 
@@ -39,7 +39,7 @@ def show():
 
         model_choice = st.selectbox(
             "Pilih Model Forecasting:",
-            ["SARIMAX", "Holt-Winters", "Prophet", "Seasonal Naïve"]
+            ["SARIMAX", "Holt-Winters", "ARIMA", "Seasonal Naïve"]
         )
         steps_ahead = st.number_input(
             "🔮 Jumlah bulan ke depan untuk forecast:",
@@ -99,17 +99,12 @@ def show():
             forecast = model_fit.forecast(steps_ahead)
             conf_int = np.column_stack([forecast * 0.95, forecast * 1.05])
 
-        elif model_choice == "Prophet":
-            df_prophet = df.reset_index().rename(columns={"ds": "ds", "y": "y"})
-            model = Prophet(seasonality_mode="additive", yearly_seasonality=True)
-            model.fit(df_prophet)
-            future = model.make_future_dataframe(periods=steps_ahead, freq="M")
-            forecast_df = model.predict(future)
-            forecast = forecast_df.tail(steps_ahead)["yhat"].values
-            conf_int = np.column_stack([
-                forecast_df.tail(steps_ahead)["yhat_lower"].values,
-                forecast_df.tail(steps_ahead)["yhat_upper"].values
-            ])
+        elif model_choice == "ARIMA":
+            model = ARIMA(df["y"], order=(2, 1, 2))
+            model_fit = model.fit()
+            forecast_object = model_fit.get_forecast(steps=steps_ahead)
+            forecast = forecast_object.predicted_mean
+            conf_int = forecast_object.conf_int(alpha=0.05).values
 
         elif model_choice == "Seasonal Naïve":
             last_season = df["y"].iloc[-12:]
