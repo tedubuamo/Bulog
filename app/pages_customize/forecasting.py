@@ -6,23 +6,26 @@ import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
-from statsmodels.tsa.arima.model import ARIMA
 from sklearn.preprocessing import MinMaxScaler
 from prophet import Prophet
 
 plt.style.use("seaborn-v0_8-whitegrid")
 
+
 def show():
     st.title("💡 Halaman Forecasting")
-    st.subheader("📈 Forecast Harga Komoditas dengan Beberapa Model Time Series")
+    st.subheader("📈 Forecast Harga Komoditas dengan Beberapa Model Seasonal")
 
     uploaded_file = st.file_uploader(
-        "📤 Upload file Excel/CSV dengan kolom ds,y. Gunakan rerata bulanan hasil scraping.",
+        "📤 Upload file Excel/CSV dengan kolom ds,y. Gunakan rerata yang sudah dihitung pada masing-masing bulan setelah dilakukan scraping.",
         type=["xlsx", "xls", "csv"]
     )
 
     if uploaded_file is not None:
-        df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+        if uploaded_file.name.endswith(".csv"):
+            df = pd.read_csv(uploaded_file)
+        else:
+            df = pd.read_excel(uploaded_file)
 
         if not {"ds", "y"}.issubset(df.columns):
             st.error("❌ File harus memiliki kolom 'ds' (tanggal) dan 'y' (harga).")
@@ -36,22 +39,14 @@ def show():
 
         model_choice = st.selectbox(
             "Pilih Model Forecasting:",
-            [
-                "SARIMAX (grid search AIC)",
-                "Holt-Winters (trend=add, seasonal=add, sp=12)",
-                "Prophet seasonal",
-                "Prophet non-seasonal",
-                "ARIMA (2,1,2)"
-            ]
+            ["SARIMAX", "Holt-Winters", "Prophet", "Seasonal Naïve"]
         )
-        steps_ahead = st.number_input("🔮 Jumlah bulan ke depan untuk forecast:", min_value=1, max_value=24, value=6)
+        steps_ahead = st.number_input(
+            "🔮 Jumlah bulan ke depan untuk forecast:",
+            min_value=1, max_value=24, value=6
+        )
 
-        forecast, conf_int = None, None
-
-        # ===============================
-        # SARIMAX (grid search AIC)
-        # ===============================
-        if model_choice.startswith("SARIMAX"):
+        if model_choice == "SARIMAX":
             df["y_log"] = np.log(df["y"])
             scaler = MinMaxScaler()
             y_scaled = scaler.fit_transform(df[["y_log"]])
@@ -98,19 +93,13 @@ def show():
             conf_int_log = scaler.inverse_transform(np.array(conf_int_scaled))
             conf_int = np.exp(conf_int_log)
 
-        # ===============================
-        # Holt-Winters
-        # ===============================
-        elif model_choice.startswith("Holt-Winters"):
-            model = ExponentialSmoothing(df["y"], trend="add", seasonal="add", seasonal_periods=12)
+        elif model_choice == "Holt-Winters":
+            model = ExponentialSmoothing(df["y"], seasonal="add", seasonal_periods=12)
             model_fit = model.fit()
             forecast = model_fit.forecast(steps_ahead)
             conf_int = np.column_stack([forecast * 0.95, forecast * 1.05])
 
-        # ===============================
-        # Prophet seasonal
-        # ===============================
-        elif model_choice == "Prophet seasonal":
+        elif model_choice == "Prophet":
             df_prophet = df.reset_index().rename(columns={"ds": "ds", "y": "y"})
             model = Prophet(seasonality_mode="additive", yearly_seasonality=True)
             model.fit(df_prophet)
@@ -122,30 +111,11 @@ def show():
                 forecast_df.tail(steps_ahead)["yhat_upper"].values
             ])
 
-        # ===============================
-        # Prophet non-seasonal
-        # ===============================
-        elif model_choice == "Prophet non-seasonal":
-            df_prophet = df.reset_index().rename(columns={"ds": "ds", "y": "y"})
-            model = Prophet(seasonality_mode="additive", yearly_seasonality=False)
-            model.fit(df_prophet)
-            future = model.make_future_dataframe(periods=steps_ahead, freq="M")
-            forecast_df = model.predict(future)
-            forecast = forecast_df.tail(steps_ahead)["yhat"].values
-            conf_int = np.column_stack([
-                forecast_df.tail(steps_ahead)["yhat_lower"].values,
-                forecast_df.tail(steps_ahead)["yhat_upper"].values
-            ])
-
-        # ===============================
-        # ARIMA (2,1,2)
-        # ===============================
-        elif model_choice.startswith("ARIMA"):
-            model = ARIMA(df["y"], order=(2,1,2))
-            model_fit = model.fit()
-            forecast_object = model_fit.get_forecast(steps=steps_ahead)
-            forecast = forecast_object.predicted_mean
-            conf_int = forecast_object.conf_int(alpha=0.05).values
+        elif model_choice == "Seasonal Naïve":
+            last_season = df["y"].iloc[-12:]
+            reps = int(np.ceil(steps_ahead / 12))
+            forecast = np.tile(last_season.values, reps)[:steps_ahead]
+            conf_int = np.column_stack([forecast * 0.95, forecast * 1.05])
 
         # ===============================
         # VISUALISASI HASIL FORECAST
@@ -158,12 +128,15 @@ def show():
         for i, value in enumerate(df["y"]):
             ax.text(df.index[i], value, f"{value:.0f}", ha="center", va="bottom", color="blue", fontsize=8, rotation=45)
 
-        ax.plot(future_dates, forecast, label=f"Forecast - {model_choice}", color="#d62728", marker="o", linewidth=2, linestyle="--")
-        ax.fill_between(future_dates, conf_int[:, 0], conf_int[:, 1], color="#ff9999", alpha=0.3, label="95% Confidence Interval")
+        ax.plot(future_dates, forecast, label=f"Forecast - {model_choice}", color="#d62728",
+                marker="o", linewidth=2, linestyle="--")
+        ax.fill_between(future_dates, conf_int[:, 0], conf_int[:, 1], color="#ff9999", alpha=0.3,
+                        label="95% Confidence Interval")
         ax.axvline(x=last_date, color="gray", linestyle="--", alpha=0.7)
 
         for i, value in enumerate(forecast):
-            ax.text(future_dates[i], value, f"{value:.0f}", ha="center", va="bottom", color="red", fontsize=9, rotation=45, weight="bold")
+            ax.text(future_dates[i], value, f"{value:.0f}", ha="center", va="bottom",
+                    color="red", fontsize=9, rotation=45, weight="bold")
 
         ax.xaxis.set_major_formatter(mdates.DateFormatter("%b-%Y"))
         ax.xaxis.set_major_locator(mdates.MonthLocator(interval=1))
@@ -185,6 +158,9 @@ def show():
             "Lower CI": conf_int[:, 0],
             "Upper CI": conf_int[:, 1]
         })
-        df_forecast = df_forecast.round(2)
+        df_forecast["Forecast"] = df_forecast["Forecast"].round(2)
+        df_forecast["Lower CI"] = df_forecast["Lower CI"].round(2)
+        df_forecast["Upper CI"] = df_forecast["Upper CI"].round(2)
+
         st.subheader("📊 Hasil Prediksi")
         st.dataframe(df_forecast)
