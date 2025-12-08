@@ -1,21 +1,25 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+import itertools
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 from statsmodels.tsa.statespace.sarimax import SARIMAX
 from statsmodels.tsa.holtwinters import ExponentialSmoothing
 from statsmodels.tsa.arima.model import ARIMA
-from prophet import Prophet
 from sklearn.preprocessing import MinMaxScaler
+from prophet import Prophet
 
 plt.style.use("seaborn-v0_8-whitegrid")
 
 def show():
     st.title("💡 Halaman Forecasting")
-    st.subheader("📈 Forecast Harga Komoditas dengan Model Time Series")
+    st.subheader("📈 Forecast Harga Komoditas dengan Beberapa Model Time Series")
 
-    uploaded_file = st.file_uploader("📤 Upload file Excel/CSV dengan kolom ds,y", type=["xlsx", "xls", "csv"])
+    uploaded_file = st.file_uploader(
+        "📤 Upload file Excel/CSV dengan kolom ds,y. Gunakan rerata bulanan hasil scraping.",
+        type=["xlsx", "xls", "csv"]
+    )
 
     if uploaded_file is not None:
         df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
@@ -30,50 +34,82 @@ def show():
         st.write("📄 Data yang diunggah:")
         st.dataframe(df)
 
-        model_choice = st.selectbox("Pilih Model Forecasting:", [
-            "SARIMAX (2,0,1)x(0,0,1,12)",
-            "Holt-Winters (trend=add, seasonal=add, sp=6)",
-            "Prophet non-seasonal",
-            "Prophet seasonal",
-            "ARIMA non-seasonal (2,1,2)"
-        ])
+        model_choice = st.selectbox(
+            "Pilih Model Forecasting:",
+            [
+                "SARIMAX (grid search AIC)",
+                "Holt-Winters (trend=add, seasonal=add, sp=12)",
+                "Prophet seasonal",
+                "Prophet non-seasonal",
+                "ARIMA (2,1,2)"
+            ]
+        )
         steps_ahead = st.number_input("🔮 Jumlah bulan ke depan untuk forecast:", min_value=1, max_value=24, value=6)
 
         forecast, conf_int = None, None
 
+        # ===============================
+        # SARIMAX (grid search AIC)
+        # ===============================
         if model_choice.startswith("SARIMAX"):
             df["y_log"] = np.log(df["y"])
             scaler = MinMaxScaler()
             y_scaled = scaler.fit_transform(df[["y_log"]])
-            model = SARIMAX(y_scaled, order=(2,0,1), seasonal_order=(0,0,1,12),
-                            enforce_stationarity=False, enforce_invertibility=False)
-            model_fit = model.fit(disp=False)
-            forecast_object = model_fit.get_forecast(steps=steps_ahead)
+
+            p = d = q = range(0, 2)
+            P = D = Q = range(0, 2)
+            s = 12
+            pdq = list(itertools.product(p, d, q))
+            seasonal_pdq = list(itertools.product(P, D, Q, [s]))
+
+            best_aic = np.inf
+            best_order = None
+            best_seasonal = None
+            best_model = None
+
+            with st.spinner("🔍 Mencari model SARIMA terbaik..."):
+                for order in pdq:
+                    for seasonal_order in seasonal_pdq:
+                        try:
+                            model = SARIMAX(
+                                y_scaled,
+                                order=order,
+                                seasonal_order=seasonal_order,
+                                enforce_stationarity=False,
+                                enforce_invertibility=False
+                            )
+                            model_fit = model.fit(disp=False)
+                            if model_fit.aic < best_aic:
+                                best_aic = model_fit.aic
+                                best_order = order
+                                best_seasonal = seasonal_order
+                                best_model = model_fit
+                        except:
+                            continue
+
+            st.success(f"✅ Model terbaik: SARIMA{best_order}x{best_seasonal} | AIC: {best_aic:.2f}")
+
+            forecast_object = best_model.get_forecast(steps=steps_ahead)
             forecast_scaled = forecast_object.predicted_mean
             forecast_log = scaler.inverse_transform(np.array(forecast_scaled).reshape(-1, 1)).flatten()
             forecast = np.exp(forecast_log)
+
             conf_int_scaled = forecast_object.conf_int(alpha=0.05)
             conf_int_log = scaler.inverse_transform(np.array(conf_int_scaled))
             conf_int = np.exp(conf_int_log)
 
+        # ===============================
+        # Holt-Winters
+        # ===============================
         elif model_choice.startswith("Holt-Winters"):
-            model = ExponentialSmoothing(df["y"], trend="add", seasonal="add", seasonal_periods=6)
+            model = ExponentialSmoothing(df["y"], trend="add", seasonal="add", seasonal_periods=12)
             model_fit = model.fit()
             forecast = model_fit.forecast(steps_ahead)
             conf_int = np.column_stack([forecast * 0.95, forecast * 1.05])
 
-        elif model_choice == "Prophet non-seasonal":
-            df_prophet = df.reset_index().rename(columns={"ds": "ds", "y": "y"})
-            model = Prophet(seasonality_mode="additive", yearly_seasonality=False)
-            model.fit(df_prophet)
-            future = model.make_future_dataframe(periods=steps_ahead, freq="M")
-            forecast_df = model.predict(future)
-            forecast = forecast_df.tail(steps_ahead)["yhat"].values
-            conf_int = np.column_stack([
-                forecast_df.tail(steps_ahead)["yhat_lower"].values,
-                forecast_df.tail(steps_ahead)["yhat_upper"].values
-            ])
-
+        # ===============================
+        # Prophet seasonal
+        # ===============================
         elif model_choice == "Prophet seasonal":
             df_prophet = df.reset_index().rename(columns={"ds": "ds", "y": "y"})
             model = Prophet(seasonality_mode="additive", yearly_seasonality=True)
@@ -86,6 +122,24 @@ def show():
                 forecast_df.tail(steps_ahead)["yhat_upper"].values
             ])
 
+        # ===============================
+        # Prophet non-seasonal
+        # ===============================
+        elif model_choice == "Prophet non-seasonal":
+            df_prophet = df.reset_index().rename(columns={"ds": "ds", "y": "y"})
+            model = Prophet(seasonality_mode="additive", yearly_seasonality=False)
+            model.fit(df_prophet)
+            future = model.make_future_dataframe(periods=steps_ahead, freq="M")
+            forecast_df = model.predict(future)
+            forecast = forecast_df.tail(steps_ahead)["yhat"].values
+            conf_int = np.column_stack([
+                forecast_df.tail(steps_ahead)["yhat_lower"].values,
+                forecast_df.tail(steps_ahead)["yhat_upper"].values
+            ])
+
+        # ===============================
+        # ARIMA (2,1,2)
+        # ===============================
         elif model_choice.startswith("ARIMA"):
             model = ARIMA(df["y"], order=(2,1,2))
             model_fit = model.fit()
